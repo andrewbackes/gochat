@@ -11,10 +11,10 @@ import (
 // Client Object:
 
 type Client struct {
-	name   string
-	DataIn chan string
-	reader *bufio.Reader
-	writer *bufio.Writer
+	name    string
+	DataIn  chan string
+	scanner *bufio.Scanner
+	writer  *bufio.Writer
 }
 
 func (C *Client) Send(message string) {
@@ -24,8 +24,8 @@ func (C *Client) Send(message string) {
 
 func (C *Client) Listen() {
 	for {
-		data, _ := C.reader.ReadString('\n')
-		data = strings.Trim(data, "\n")
+		C.scanner.Scan()
+		data := C.scanner.Text()
 		C.DataIn <- data
 	}
 }
@@ -46,13 +46,13 @@ func (CM *ClientManager) ListenTo(c *Client) {
 }
 
 func (CM *ClientManager) Add(c net.Conn) {
-	r := bufio.NewReader(c)
+	s := bufio.NewScanner(c)
 	w := bufio.NewWriter(c)
 	newClient := &Client{
-		name:   c.RemoteAddr().String(),
-		DataIn: make(chan string),
-		reader: r,
-		writer: w,
+		name:    c.RemoteAddr().String(),
+		DataIn:  make(chan string),
+		scanner: s,
+		writer:  w,
 	}
 	go newClient.Listen()
 	CM.Connecting <- newClient
@@ -123,10 +123,13 @@ func main() {
 	go Broadcast(&CM, stop)
 
 	// REPL:
-	console := bufio.NewReader(os.Stdin)
+	//console := bufio.NewReader(os.Stdin)
+	console := bufio.NewScanner(os.Stdin)
 	for {
-		command, _ := console.ReadString('\n')
-		command = strings.Trim(command, "\n")
+		console.Scan()
+		command := console.Text()
+		//command, _ := console.ReadString('\n')
+		//command = strings.Trim(command, "\n")
 		words := strings.Split(command, " ")
 
 		switch words[0] {
