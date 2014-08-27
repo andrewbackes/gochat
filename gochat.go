@@ -67,6 +67,7 @@ func Broadcast(CM *ClientManager, stop chan struct{}) {
 		select {
 		// Send message to all connected clients:
 		case message := <-CM.Messages:
+			fmt.Println(message)
 			for i, _ := range ClientList {
 				go ClientList[i].Send(message)
 			}
@@ -127,7 +128,7 @@ func main() {
 		command, _ := console.ReadString('\n')
 		command = strings.Trim(command, "\n")
 		words := strings.Split(command, " ")
-		CM.Messages <- command
+
 		switch words[0] {
 		case "quit":
 			close(stop)
@@ -136,6 +137,8 @@ func main() {
 			go Connect(&CM, words[1])
 		case "host":
 			go Serve(&CM, stop)
+		default:
+			CM.Messages <- command
 		}
 	}
 	return
