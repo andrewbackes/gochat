@@ -18,6 +18,7 @@ type Client struct {
 }
 
 func (C *Client) Send(message string) {
+	fmt.Println("SENDING to ", C.name, message)
 	C.writer.WriteString(message)
 	C.writer.Flush()
 }
@@ -25,6 +26,7 @@ func (C *Client) Send(message string) {
 func (C *Client) Listen() {
 	for {
 		data, _ := C.reader.ReadString('\n')
+		data = strings.Trim(data, "\n")
 		C.DataIn <- data
 	}
 }
@@ -65,7 +67,6 @@ func Broadcast(CM *ClientManager, stop chan struct{}) {
 		select {
 		// Send message to all connected clients:
 		case message := <-CM.Messages:
-			fmt.Print(message)
 			for i, _ := range ClientList {
 				go ClientList[i].Send(message)
 			}
