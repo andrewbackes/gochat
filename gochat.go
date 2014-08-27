@@ -18,7 +18,6 @@ type Client struct {
 }
 
 func (C *Client) Send(message string) {
-	fmt.Println("SENDING to ", C.name, message)
 	C.writer.WriteString(message)
 	C.writer.Flush()
 }
@@ -39,6 +38,7 @@ type ClientManager struct {
 }
 
 func (CM *ClientManager) ListenTo(c *Client) {
+	c.Send(fmt.Sprintln("You are being listened to."))
 	for {
 		message := <-c.DataIn
 		CM.Messages <- c.name + ": " + message
@@ -97,7 +97,7 @@ func Serve(CM *ClientManager, stop chan struct{}) {
 }
 
 func Connect(CM *ClientManager, address string) {
-	fmt.Println("Connecting to " + address + "... ")
+	fmt.Print("Connecting to " + address + "... ")
 	host, err := net.Dial("tcp", address)
 	if err == nil {
 		CM.Add(host)
@@ -118,7 +118,7 @@ func main() {
 	stop := make(chan struct{})
 
 	// Fan out workers:
-	go Serve(&CM, stop)
+
 	go Broadcast(&CM, stop)
 
 	// REPL:
@@ -134,6 +134,8 @@ func main() {
 			return
 		case "connect":
 			go Connect(&CM, words[1])
+		case "host":
+			go Serve(&CM, stop)
 		}
 	}
 	return
