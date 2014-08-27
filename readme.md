@@ -1,7 +1,7 @@
 Go Chat
 =======
 
-Simple TCP chat program written in Golang. The purpose is to demonstrate how easy it is to communicate over a network with Go. This is a precursor to a more complicated distributed computing system I am writing. 
+Simple TCP chat program written in Golang. Demonstrate how easy network communication is with Go. This is a precursor to a more complicated distributed computing system I am writing. 
 
 The program sends messages to anybody who has connected to you and anybody you have connected to.
 
