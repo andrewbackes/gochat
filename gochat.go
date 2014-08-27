@@ -18,7 +18,7 @@ type Client struct {
 }
 
 func (C *Client) Send(message string) {
-	C.writer.WriteString(message)
+	C.writer.WriteString(fmt.Sprintln(message))
 	C.writer.Flush()
 }
 
@@ -130,7 +130,7 @@ func main() {
 		command := console.Text()
 		//command, _ := console.ReadString('\n')
 		//command = strings.Trim(command, "\n")
-		words := strings.Split(command, " ")
+		words := strings.SplitN(command, " ", 2)
 
 		switch words[0] {
 		case "quit":
@@ -140,6 +140,8 @@ func main() {
 			go Connect(&CM, words[1])
 		case "host":
 			go Serve(&CM, stop)
+		case "say":
+			CM.Messages <- words[1]
 		default:
 			CM.Messages <- command
 		}
