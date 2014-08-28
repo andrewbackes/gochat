@@ -17,8 +17,8 @@ type Client struct {
 	writer  *bufio.Writer
 }
 
-func (C *Client) Send(message string) {
-	C.writer.WriteString(fmt.Sprintln(message))
+func (C *Client) Send(text string) {
+	C.writer.WriteString(fmt.Sprintln(text))
 	C.writer.Flush()
 }
 
@@ -27,25 +27,13 @@ func (C *Client) Listen() {
 		C.scanner.Scan()
 		data := C.scanner.Text()
 		C.DataIn <- data
+		if strings.HasPrefix(data, "quit") {
+			break
+		}
 	}
 }
 
-// Client Handling Object:
-
-type ClientManager struct {
-	Connecting chan *Client
-	Messages   chan string
-}
-
-func (CM *ClientManager) ListenTo(c *Client) {
-	c.Send(fmt.Sprintln("You are being listened to."))
-	for {
-		message := <-c.DataIn
-		CM.Messages <- c.name + ": " + message
-	}
-}
-
-func (CM *ClientManager) Add(c net.Conn) {
+func InitClient(c net.Conn) *Client {
 	s := bufio.NewScanner(c)
 	w := bufio.NewWriter(c)
 	newClient := &Client{
@@ -55,26 +43,44 @@ func (CM *ClientManager) Add(c net.Conn) {
 		writer:  w,
 	}
 	go newClient.Listen()
+	return newClient
+}
+
+// Client Handling Object:
+
+type ClientManager struct {
+	Connecting chan *Client
+	Messages   chan string
+	List       []*Client
+}
+
+func (CM *ClientManager) ListenTo(c *Client) {
+	c.Send("You are being listened to.")
+	for {
+		message := <-c.DataIn
+		fmt.Println(c.name + ": " + message)
+	}
+}
+
+func (CM *ClientManager) Add(c net.Conn) {
+	newClient := InitClient(c)
 	CM.Connecting <- newClient
 }
 
-// Workers:
-
+// Communication Hub:
 func Broadcast(CM *ClientManager, stop chan struct{}) {
 	fmt.Println("Broadcasting...")
-	var ClientList []*Client
 	for {
 		select {
 		// Send message to all connected clients:
 		case message := <-CM.Messages:
-			fmt.Println(message)
-			for i, _ := range ClientList {
-				go ClientList[i].Send(message)
+			for i, _ := range CM.List {
+				go CM.List[i].Send(message)
 			}
 		// Add connecting clients to the broadcast list:
 		case newClient := <-CM.Connecting:
 			fmt.Println(newClient.name, "connected.")
-			ClientList = append(ClientList, newClient)
+			CM.List = append(CM.List, newClient)
 			go CM.ListenTo(newClient)
 		// Fan in:
 		case <-stop:
@@ -85,9 +91,14 @@ func Broadcast(CM *ClientManager, stop chan struct{}) {
 	return
 }
 
+// Host Worker:
 func Serve(CM *ClientManager, stop chan struct{}) {
 	fmt.Println("Awaiting connections on port 1337...")
-	server, _ := net.Listen("tcp", ":1337")
+	server, err := net.Listen("tcp", ":1337")
+	if err != nil {
+		fmt.Println(err.Error())
+		return
+	}
 	defer server.Close()
 	for {
 		// Wait for a connection:
@@ -97,15 +108,16 @@ func Serve(CM *ClientManager, stop chan struct{}) {
 	}
 }
 
+// Client Worker:
 func Connect(CM *ClientManager, address string) {
 	fmt.Print("Connecting to " + address + "... ")
 	host, err := net.Dial("tcp", address)
-	if err == nil {
-		CM.Add(host)
-		fmt.Println("Success.")
-	} else {
+	if err != nil {
 		fmt.Println(err.Error())
+		return
 	}
+	CM.Add(host)
+	fmt.Println("Success.")
 }
 
 func main() {
@@ -119,29 +131,25 @@ func main() {
 	stop := make(chan struct{})
 
 	// Fan out workers:
-
+	go Serve(&CM, stop)
 	go Broadcast(&CM, stop)
 
 	// REPL:
-	//console := bufio.NewReader(os.Stdin)
 	console := bufio.NewScanner(os.Stdin)
 	for {
 		console.Scan()
 		command := console.Text()
-		//command, _ := console.ReadString('\n')
-		//command = strings.Trim(command, "\n")
 		words := strings.SplitN(command, " ", 2)
 
 		switch words[0] {
 		case "quit":
+			CM.Messages <- "quit"
 			close(stop)
 			return
 		case "connect":
-			go Connect(&CM, words[1])
-		case "host":
-			go Serve(&CM, stop)
-		case "say":
-			CM.Messages <- words[1]
+			if len(words) > 0 {
+				Connect(&CM, words[1])
+			}
 		default:
 			CM.Messages <- command
 		}
