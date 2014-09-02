@@ -70,6 +70,7 @@ func (CM *ClientManager) Add(c net.Conn) {
 // Communication Hub:
 func Broadcast(CM *ClientManager, stop chan struct{}) {
 	fmt.Println("Broadcasting...")
+BroadcastLoop:
 	for {
 		select {
 		// Send message to all connected clients:
@@ -84,7 +85,7 @@ func Broadcast(CM *ClientManager, stop chan struct{}) {
 			go CM.ListenTo(newClient)
 		// Fan in:
 		case <-stop:
-			break
+			break BroadcastLoop
 		}
 	}
 	fmt.Println("Stopped broadcasting.")
