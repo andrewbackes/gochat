@@ -26,9 +26,13 @@ func (C *Client) Listen() {
 	for {
 		C.scanner.Scan()
 		data := C.scanner.Text()
-		C.DataIn <- data
-		if strings.HasPrefix(data, "quit") {
-			break
+		if data != "" {
+			if strings.HasPrefix(data, "quit") {
+				fmt.Println(C.name + " disconnected.")
+				C.Send("You have been disconnected.")
+				break
+			}
+			C.DataIn <- data
 		}
 	}
 }
@@ -70,7 +74,6 @@ func (CM *ClientManager) Add(c net.Conn) {
 // Communication Hub:
 func Broadcast(CM *ClientManager, stop chan struct{}) {
 	fmt.Println("Broadcasting...")
-BroadcastLoop:
 	for {
 		select {
 		// Send message to all connected clients:
@@ -85,10 +88,10 @@ BroadcastLoop:
 			go CM.ListenTo(newClient)
 		// Fan in:
 		case <-stop:
-			break BroadcastLoop
+			fmt.Println("Stopped broadcasting.")
+			return
 		}
 	}
-	fmt.Println("Stopped broadcasting.")
 	return
 }
 
