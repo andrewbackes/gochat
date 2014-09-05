@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+
 	"net"
 	"os"
 	"strings"
@@ -15,6 +16,7 @@ type Client struct {
 	DataIn  chan string
 	scanner *bufio.Scanner
 	writer  *bufio.Writer
+	close   func() error
 }
 
 func (C *Client) Send(text string) {
@@ -24,17 +26,16 @@ func (C *Client) Send(text string) {
 
 func (C *Client) Listen() {
 	for {
-		C.scanner.Scan()
+		ok := C.scanner.Scan()
 		data := C.scanner.Text()
-		if data != "" {
-			if strings.HasPrefix(data, "quit") {
-				fmt.Println(C.name + " disconnected.")
-				C.Send("You have been disconnected.")
-				break
-			}
-			C.DataIn <- data
+		if !ok || strings.HasPrefix(data, "quit") {
+			break
 		}
+		C.DataIn <- data
 	}
+	fmt.Println(C.name + " disconnected.")
+	C.Send("You have been disconnected.")
+	C.close()
 }
 
 func InitClient(c net.Conn) *Client {
@@ -45,6 +46,7 @@ func InitClient(c net.Conn) *Client {
 		DataIn:  make(chan string),
 		scanner: s,
 		writer:  w,
+		close:   c.Close,
 	}
 	go newClient.Listen()
 	return newClient
